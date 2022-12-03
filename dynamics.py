@@ -105,7 +105,7 @@ class Bullet(object):
         T, a, P, ro = atmo(0)
 
         self.d = kalib  # mid diam
-        self.s_f = 0.25 * kk.pi * self.d ** 2
+        self.s_f = kk.pi * (self.d * 2 / 4) ** 2
         self.mass = mas
         self.Jxyz = [jx, jy, jz]
 
@@ -187,25 +187,24 @@ class Bullet(object):
         self.mah = abs_v_flow / a
         self.q = 0.5 * ro * abs_v_flow ** 2
 
-        if v_u_x == 0:  # self.vx1 == 0:
+        if v_u_x == 0:  
             alf_p = kk.pi / 2 * crd
         else:
             alf_p = kk.atan2(kk.sqrt(v_u_y ** 2 + v_u_z ** 2), v_u_x) * crd
-            # kk.atan2(kk.sqrt(self.vy1 ** 2 + self.vz1 ** 2), self.vx1)
-        # alf_p_ = (alf_p - self.mem_of_alf_p) / dt  # скоростной пространственный угол атаки
+    
         self.mem_of_alf_p = alf_p
 
-        if v_u_y == 0:  # self.vy1 == 0:
+        if v_u_y == 0:  
             fi_p = kk.pi / 2 * crd
         else:
-            fi_p = kk.atan2(v_u_z, -v_u_y) * crd  # kk.atan2(self.vz1, -self.vy1)
+            fi_p = kk.atan2(v_u_z, -v_u_y) * crd  
 
         """___________________________________________________________________
                             find aero coef. with alf prostr
         ___________________________________________________________________"""
         # Подъемная сила
-        Cy1_iz_korp_alf = 2 / 57.3 * kk.cos(tet)  # для конуса
-        Cy1_iz_korp = Cy1_iz_korp_alf * alf_p / crd
+        Cy1_iz_korp_alf = 2 / 57.3 * (kk.cos(tet)) ** 2 # для конуса
+        Cy1_iz_korp = Cy1_iz_korp_alf * kk.sin(alf_p / crd)  
 
         f_y1_p = Cy1_iz_korp * self.q * self.s_f
 
@@ -218,16 +217,10 @@ class Bullet(object):
 
         cx_nos = tb.tab_4_11(self.mah, len_full / self.d)
 
-        # p_dn = 0.0155 / kk.sqrt(len_full / self.d * c_f)
-        # eta_dn = 1
-        # cx_dn = -p_dn * eta_dn
+        cx_0 = cx_tr + cx_nos  
 
-        cx_0 = cx_tr + cx_nos  # + cx_dn
-
-        cx_ind = (57.3 * Cy1_iz_korp_alf + 2 * tb.tab_4_40(self.mah, len_full / self.d, 1)) * (alf_p / crd / 57.3) ** 2
-        Cx = cx_0 + cx_ind
-        print(cx_0, cx_ind, "cx")
-        print(cx_0, cx_ind, alf_p)
+        cx_ind = (57.3 * Cy1_iz_korp_alf + 2 * tb.tab_4_40(self.mah, len_full / self.d, 1)) * kk.sin(alf_p / crd) ** 2
+        Cx = cx_0  + cx_ind
 
         """___________________________________________________________________
                                         momenti
@@ -238,21 +231,19 @@ class Bullet(object):
         mz_10 = 0  # форма идеального конуса -  в нейтральном положении при угле атаки 0 - обтекание равномерное
 
         x_f_alf = len_full - W_geom / self.s_f  # координата фокуса по углу атаки
+        # print(x_f_alf, mz_alf)
         mz_alf = Cy1_iz_korp_alf * (x1_cm[krit_ust] - x_f_alf) / len_full
-        # print(x_f_alf, x1_cm, mz_alf)
-
+        print(x_f_alf, mz_alf)
+        # print(mz_alf, mz_alf * kk.sin(alf_p / crd), alf_p, x_f_alf, "xx", Cx * self.q* self.s_f, f_y1_p, Cx, cx_0, cx_nos)
+        
         # для конуса lambd_nos = lambd_f -> x_c_ob = x_cm of full metal form
         mz_wz = -2 * (1 - x1_cm[krit_ust] / len_full + (x1_cm[krit_ust] / len_full) ** 2 - x1_cm[0] / len_full)
-        # print(mz_wz, mz_alf, alf_p, self.wz)
+        
         # mz_alf_ = 0  # так как в модели отсутствуют крылья -> нет запаздывания скоса потока
 
-        mz_p = mz_wz * self.wz * len_full / abs_v_flow # mz_10 + mz_alf * alf_p * crd #  + mz_wz * self.wz * len_full / abs_v_flow
-        # mz_10 + mz_alf * alf_p + mz_wz * self.wz * len_full / abs_v_flow  # + mz_alf_ * alf_p_ * len_full / abs_v_flow
-
+        mz_p = mz_wz * self.wz * len_full / abs_v_flow + mz_alf * kk.sin(alf_p / crd)  # * crd #  + mz_wz * self.wz * len_full / abs_v_flow
+        # mz_wz * self.wz * len_full / abs_v_flow +
         Mz_p = mz_p * self.q * self.s_f * len_full
-
-        # Mz_p = 0
-        # kren
 
         """___________________________________________________________________
                             from prostr to std body coord
@@ -265,10 +256,7 @@ class Bullet(object):
         Mx = 0
         My = Mz_p * kk.sin(fi_p/crd)
         Mz = Mz_p * kk.cos(fi_p/crd)
-        print(Mz_p, f_y1_p, fx, "force")
-        # print(Mz, My, fy, fz)
-        print()
-
+        
         return [fx, fy, fz], [Mx, My, Mz]
 
     def dynamics(self, *args):  # 0 - Fxyz[x, y, z], 1 - Mxyz[x, y, z] all in body
@@ -326,15 +314,12 @@ class Bullet(object):
         self.L3 = euler(self.L3, der_L3)
 
         LL0, LL1, LL2, LL3 = norm_quat([self.L0, self.L1, self.L2, self.L3])
-        # print(kk.sqrt(LL0**2 + LL1**2 + LL2**2 + LL3**2))
+
         # Euler ang.
         self.tang = kk.asin(2 * (LL1 * LL2 + LL0 * LL3))
         self.gamma = kk.atan2((LL0 * LL1 - LL2 * LL3), (LL0 ** 2 + LL2 ** 2 - 0.5))
         self.psi = kk.atan2((LL0 * LL2 - LL1 * LL3), (LL0 ** 2 + LL1 ** 2 - 0.5))
 
-        print(self.tang, self.psi, self.gamma)
-
-        # print(self.v, self.tang * 180 / kk.pi, self.alf, self.wz * 180 / kk.pi, self.wy * 180 / kk.pi)
         # Earth normolized coords
         self.x = euler(self.x, der_xyz[1])
         self.y = euler(self.y, der_xyz[2])
@@ -342,28 +327,34 @@ class Bullet(object):
 
 
 # model params
-dt = 0.004
+dt = 0.001
 g = 9.81
-wind_ = [0, 0, 10]  # wind in [x, y, z] projections on earth normilized coords
+wind_ = [0, 0, 0]  # wind in [x, y, z] projections on earth normilized coords
 
 # mass params
-Jx = [127.943 * 10 ** -9, 71.25 * 10 ** -9]  # кг * м^2
-Jy = [774.765 * 10 ** -9, 439.11 * 10 ** -9]  # кг * м^2
-Jz = [774.765 * 10 ** -9, 439.11 * 10 ** -9]  # кг * м^2
-m = [11.85 * 10 ** -3, 5.61 * 10 ** -3]  # кг для стали 10
-x1_cm = [30 * 10 ** -3, 25.1 * 10 ** -3]  # координата цм от носка
+# Jx = [127.943 * 10 ** -6, 71.25 * 10 ** -6]  # кг * м^2
+# Jy = [774.765 * 10 ** -6, 439.11 * 10 ** -6]  # кг * м^2
+# Jz = [774.765 * 10 ** -6, 439.11 * 10 ** -6]  # кг * м^2
+# m = [11.85 * 10 ** -3, 5.61 * 10 ** -3]  # кг для стали 10
+# x1_cm = [30 * 10 ** -3, 25.1 * 10 ** -3]  # координата цм от носка
+
+Jx = [208 * 10 ** -6, 69.178 * 10 ** -6]  # кг * м^2
+Jy = [3643 * 10 ** -6, 1533.3 * 10 ** -6]  # кг * м^2
+Jz = [3643 * 10 ** -6, 1533.3 * 10 ** -6]  # кг * м^2
+m = [0.0193, 5.48 * 10 ** -3]  # кг для стали 10
+x1_cm = [0.0525, 42.4 * 10 ** -3]  # координата цм от носка
 
 # geometry
 d = 0.012  # м
-W_geom = 1507 * 10 ** - 9  # м^3
-S_omiv = 762.41735 * 10 ** -6  # м^2
+W_geom =  0.00000264  # 1507 * 10 ** - 9  # м^3
+S_omiv = 1324.31 * 10 ** -6  # м^2
 krit_rasch = 0  # 0 - пуля, 1 - шар
-krit_ust = 1  # 0 - статически неустойчивая, 1 - устойчивая
+krit_ust = 0  # 0 - статически неустойчивая, 1 - устойчивая
 
-len_full = 0.04  # длина общая
+len_full = 0.07  # длина общая
 tet = kk.atan(d/2 / len_full)  # deg - угол порураствора конуса
 
-v_0 = 270  # м/с
+v_0 = 350  # м/с
 tang_0 = 20  # deg
 
 bull_12 = Bullet(d, m[krit_ust], Jx[krit_ust], Jy[krit_ust], Jz[krit_ust], v_0, tang_0, wind_)
@@ -402,12 +393,13 @@ ti = [0]
 ___________________________________________________________________"""
 
 while bull_12.y >= 0:  # time < 5: # bull_12.y >= 0:
-    print(wind_speed(wind_, form_c_ib([bull_12.L0, bull_12.L1, bull_12.L2, bull_12.L3])))
-    print(wind_)
+    
     f_xyz, m_xyz = bull_12.aero(bull_12.windd(wind_))  # wind_speed(wind_, form_c_ib([bull_12.L0, bull_12.L1, bull_12.L2, bull_12.L3])))
     bull_12.dynamics(f_xyz, m_xyz)
+    print(bull_12.alf, bull_12.betta, bull_12.tang * 180 / kk.pi)
+    print()
     time += dt
-
+    
     vxx.append(bull_12.vx1)
     vyy.append(bull_12.vy1)
     vzz.append(bull_12.vz1)
@@ -427,7 +419,7 @@ while bull_12.y >= 0:  # time < 5: # bull_12.y >= 0:
 
     ti.append(time)
 
-plt.figure(figsize=(10 * 1.5, 6 * 1.5))
+plt.figure(figsize=(10 * 2, 1 * 2))
 plt.plot(xx, yy)
 plt.grid(True)
 plt.show()
@@ -460,3 +452,8 @@ plt.plot(ti, L22)
 plt.plot(ti, L33)
 plt.grid(True)
 plt.show()
+
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(xx, zz, yy)
