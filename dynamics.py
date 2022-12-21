@@ -5,6 +5,7 @@ import Tabl as tb
 
 
 euler = lambda arg, der: arg + der * dt
+sign = lambda arg: arg / kk.sqrt(arg ** 2)
 
 
 def atmo(H):
@@ -182,6 +183,7 @@ class Bullet(object):
         abs_v_flow = kk.sqrt(v_u_x ** 2 + v_u_y ** 2 + v_u_z ** 2)
 
         self.alf = kk.atan(-v_u_y / v_u_x) * crd
+
         self.betta = kk.asin(v_u_z / abs_v_flow) * crd
 
         self.mah = abs_v_flow / a
@@ -203,7 +205,7 @@ class Bullet(object):
                             find aero coef. with alf prostr
         ___________________________________________________________________"""
         # Подъемная сила
-        Cy1_iz_korp_alf = 2 / 57.3 * (kk.cos(tet)) ** 2 # для конуса
+        Cy1_iz_korp_alf = tb.tab_3_4(self.mah, 1, 1)  # 2 / 57.3 * (kk.cos(tet)) ** 2 # для конуса
         Cy1_iz_korp = Cy1_iz_korp_alf * kk.sin(alf_p / crd)  
 
         f_y1_p = Cy1_iz_korp * self.q * self.s_f
@@ -215,12 +217,17 @@ class Bullet(object):
         c_f = tb.tab_4_3(self.mah, x_t_) * tb.tab_4_2(rei_f, x_t_) / 2
         cx_tr = c_f * S_omiv / self.s_f
 
-        cx_nos = tb.tab_4_11(self.mah, len_full / self.d)
+        cx_nos = tb.tab_4_13(self.mah, len_full / self.d)
 
-        cx_0 = cx_tr + cx_nos  
+        """
+        ___________________________________________________________
+        """
 
+
+        cx_0 = (cx_tr + cx_nos) * 1.2
+        # len_full / self.d, 1
         cx_ind = (57.3 * Cy1_iz_korp_alf + 2 * tb.tab_4_40(self.mah, len_full / self.d, 1)) * kk.sin(alf_p / crd) ** 2
-        Cx = cx_0  + cx_ind
+        Cx = cx_0  # + cx_ind
 
         """___________________________________________________________________
                                         momenti
@@ -230,10 +237,10 @@ class Bullet(object):
 
         mz_10 = 0  # форма идеального конуса -  в нейтральном положении при угле атаки 0 - обтекание равномерное
 
-        x_f_alf = len_full - W_geom / self.s_f  # координата фокуса по углу атаки
+        x_f_alf = 0.006 # len_full - W_geom / self.s_f  # координата фокуса по углу атаки
         # print(x_f_alf, mz_alf)
         mz_alf = Cy1_iz_korp_alf * (x1_cm[krit_ust] - x_f_alf) / len_full
-        print(x_f_alf, mz_alf)
+        #print(x_f_alf, mz_alf)
         # print(mz_alf, mz_alf * kk.sin(alf_p / crd), alf_p, x_f_alf, "xx", Cx * self.q* self.s_f, f_y1_p, Cx, cx_0, cx_nos)
         
         # для конуса lambd_nos = lambd_f -> x_c_ob = x_cm of full metal form
@@ -242,8 +249,10 @@ class Bullet(object):
         # mz_alf_ = 0  # так как в модели отсутствуют крылья -> нет запаздывания скоса потока
 
         mz_p = mz_wz * self.wz * len_full / abs_v_flow + mz_alf * kk.sin(alf_p / crd)  # * crd #  + mz_wz * self.wz * len_full / abs_v_flow
-        # mz_wz * self.wz * len_full / abs_v_flow +
+        # mz_wz * self.wz * len_full / abs_v_flow + mz_wz * self.wz * len_full / abs_v_flow +
         Mz_p = mz_p * self.q * self.s_f * len_full
+
+        # Mz_p = 0
 
         """___________________________________________________________________
                             from prostr to std body coord
@@ -256,7 +265,7 @@ class Bullet(object):
         Mx = 0
         My = Mz_p * kk.sin(fi_p/crd)
         Mz = Mz_p * kk.cos(fi_p/crd)
-        
+
         return [fx, fy, fz], [Mx, My, Mz]
 
     def dynamics(self, *args):  # 0 - Fxyz[x, y, z], 1 - Mxyz[x, y, z] all in body
@@ -284,9 +293,9 @@ class Bullet(object):
         der_vy1 = fxyz[1] / self.mass - amult[2] + self.vz1 * self.wx - self.vx1 * self.wz
         der_vz1 = fxyz[2] / self.mass - amult[3] + self.vx1 * self.wy - self.vy1 * self.wx
 
-        der_wx = mxyz[0] / self.Jxyz[0] - (self.Jxyz[2] - self.Jxyz[1]) / self.Jxyz[0] * self.wy * self.wz
-        der_wy = mxyz[1] / self.Jxyz[1] - (self.Jxyz[0] - self.Jxyz[2]) / self.Jxyz[1] * self.wx * self.wz
-        der_wz = mxyz[2] / self.Jxyz[2] - (self.Jxyz[1] - self.Jxyz[0]) / self.Jxyz[2] * self.wx * self.wy
+        der_wx = float(mxyz[0] / self.Jxyz[0] - (self.Jxyz[2] - self.Jxyz[1]) / self.Jxyz[0] * self.wy * self.wz)
+        der_wy = float(mxyz[1] / self.Jxyz[1] - (self.Jxyz[0] - self.Jxyz[2]) / self.Jxyz[1] * self.wx * self.wz)
+        der_wz = float(mxyz[2] / self.Jxyz[2] - (self.Jxyz[1] - self.Jxyz[0]) / self.Jxyz[2] * self.wx * self.wy)
 
         der_L0 = (-LL1 * self.wx - LL2 * self.wy - LL3 * self.wz) / 2
         der_L1 = (LL0 * self.wx - LL3 * self.wy + LL2 * self.wz) / 2
@@ -301,6 +310,7 @@ class Bullet(object):
         self.vy1 = euler(self.vy1, der_vy1)
         self.vz1 = euler(self.vz1, der_vz1)
         self.v = kk.sqrt(self.vx1**2 + self.vy1**2 + self.vz1**2)
+        # print(self.v)
 
         # body ang. speed
         self.wx = euler(self.wx, der_wx)
@@ -317,7 +327,12 @@ class Bullet(object):
 
         # Euler ang.
         self.tang = kk.asin(2 * (LL1 * LL2 + LL0 * LL3))
-        self.gamma = kk.atan2((LL0 * LL1 - LL2 * LL3), (LL0 ** 2 + LL2 ** 2 - 0.5))
+        if fxyz[2] == 0:
+            self.gamma = 0
+        elif time >= 27.1:
+            self.gamma = 0
+        else:
+            self.gamma = kk.atan2((LL0 * LL1 - LL2 * LL3), (LL0 ** 2 + LL2 ** 2 - 0.5))
         self.psi = kk.atan2((LL0 * LL2 - LL1 * LL3), (LL0 ** 2 + LL1 ** 2 - 0.5))
 
         # Earth normolized coords
@@ -329,7 +344,7 @@ class Bullet(object):
 # model params
 dt = 0.001
 g = 9.81
-wind_ = [0, 0, 0]  # wind in [x, y, z] projections on earth normilized coords
+wind_ = [[0, 0, 0], [0, 0, -20], [0, 20, 0], [0, 14, -14]]  # wind in [x, y, z] projections on earth normilized coords
 
 # mass params
 # Jx = [127.943 * 10 ** -6, 71.25 * 10 ** -6]  # кг * м^2
@@ -338,92 +353,143 @@ wind_ = [0, 0, 0]  # wind in [x, y, z] projections on earth normilized coords
 # m = [11.85 * 10 ** -3, 5.61 * 10 ** -3]  # кг для стали 10
 # x1_cm = [30 * 10 ** -3, 25.1 * 10 ** -3]  # координата цм от носка
 
-Jx = [208 * 10 ** -6, 69.178 * 10 ** -6]  # кг * м^2
-Jy = [3643 * 10 ** -6, 1533.3 * 10 ** -6]  # кг * м^2
-Jz = [3643 * 10 ** -6, 1533.3 * 10 ** -6]  # кг * м^2
-m = [0.0193, 5.48 * 10 ** -3]  # кг для стали 10
-x1_cm = [0.0525, 42.4 * 10 ** -3]  # координата цм от носка
+Jx = [102 * 10 ** -6,float(208 * 10 ** -6), 69.178 * 10 ** -6]  # кг * м^2
+Jy = [102 * 10 ** -6, float(3643 * 10 ** -6), 1533.3 * 10 ** -6]  # кг * м^2
+Jz = [102 * 10 ** -6, float(3643 * 10 ** -6), 1533.3 * 10 ** -6]  # кг * м^2
+m = [0.0071,0.0193, 5.48 * 10 ** -3]  # кг для стали 10
+x1_cm = [0.006, 0.058, 40. * 10 ** -3]  # координата цм от носка
 
 # geometry
 d = 0.012  # м
-W_geom =  0.00000264  # 1507 * 10 ** - 9  # м^3
-S_omiv = 1324.31 * 10 ** -6  # м^2
+W_geom = 0.006  # 0.00000264  # 1507 * 10 ** - 9  # м^3
+S_omiv = 0.000226  # 1324.31 * 10 ** -6  # м^2
 krit_rasch = 0  # 0 - пуля, 1 - шар
 krit_ust = 0  # 0 - статически неустойчивая, 1 - устойчивая
 
-len_full = 0.07  # длина общая
+len_full = 0.012  # длина общая
 tet = kk.atan(d/2 / len_full)  # deg - угол порураствора конуса
 
-v_0 = 350  # м/с
+v_0 = 300  # м/с
 tang_0 = 20  # deg
 
-bull_12 = Bullet(d, m[krit_ust], Jx[krit_ust], Jy[krit_ust], Jz[krit_ust], v_0, tang_0, wind_)
 
-time = 0
-
-amult_0 = [0]
-amult_1 = [1]
-amult_2 = [2]
-amult_3 = [3]
-
-vxx = [bull_12.vx1]
-vyy = [bull_12.vy1]
-vzz = [bull_12.vz1]
-
-der_vx = [0]
-der_vy = [0]
-der_vz = [0]
-
-L00 = [bull_12.L0]
-L11 = [bull_12.L1]
-L22 = [bull_12.L2]
-L33 = [bull_12.L3]
-
-wxx = [bull_12.wx]
-wyy = [bull_12.wy]
-wzz = [bull_12.wz]
-
-xx = [bull_12.x]
-yy = [bull_12.y]
-zz = [bull_12.z]
-
-ti = [0]
 """___________________________________________________________________
                             Main body
 ___________________________________________________________________"""
+color = ['r', 'g', 'b', 'k']
+label = ['отсутвие ветра', 'горизонтальный', 'вертикальный', 'смешанный']
+'''plt.figure(figsize=(10 * 2, 1 * 3))
+for ii in range(0, 4):
 
-while bull_12.y >= 0:  # time < 5: # bull_12.y >= 0:
-    
-    f_xyz, m_xyz = bull_12.aero(bull_12.windd(wind_))  # wind_speed(wind_, form_c_ib([bull_12.L0, bull_12.L1, bull_12.L2, bull_12.L3])))
-    bull_12.dynamics(f_xyz, m_xyz)
-    print(bull_12.alf, bull_12.betta, bull_12.tang * 180 / kk.pi)
-    print()
-    time += dt
-    
-    vxx.append(bull_12.vx1)
-    vyy.append(bull_12.vy1)
-    vzz.append(bull_12.vz1)
+    bull_12 = Bullet(d, m[krit_ust], Jx[krit_ust], Jy[krit_ust], Jz[krit_ust], v_0, tang_0, wind_[ii])
+    print(bull_12.alf, bull_12.betta)
+    time = 0
 
-    L00.append(bull_12.L0)
-    L11.append(bull_12.L1)
-    L22.append(bull_12.L2)
-    L33.append(bull_12.L3)
+    xx = [bull_12.x]
+    yy = [bull_12.y]
+    zz = [bull_12.z]
 
-    wxx.append(bull_12.wx)
-    wyy.append(bull_12.wy)
-    wzz.append(bull_12.wz)
+    ti = [0]
 
-    xx.append(bull_12.x)
-    yy.append(bull_12.y)
-    zz.append(bull_12.z)
+    while bull_12.y >= 0:  # time < 5: # bull_12.y >= 0:
 
-    ti.append(time)
+        f_xyz, m_xyz = bull_12.aero(bull_12.windd(wind_[ii]))  # wind_speed(wind_, form_c_ib([bull_12.L0, bull_12.L1, bull_12.L2, bull_12.L3])))
+        bull_12.dynamics(f_xyz, m_xyz)
+        # print(bull_12.alf, bull_12.betta, bull_12.tang * 180 / kk.pi)
+        # print()
+        time += dt
 
-plt.figure(figsize=(10 * 2, 1 * 2))
-plt.plot(xx, yy)
-plt.grid(True)
+        xx.append(bull_12.x)
+        yy.append(bull_12.y)
+        zz.append(bull_12.z)
+
+        ti.append(time)
+
+    plt.plot(xx, yy, linestyle='-',color=color[ii], label=label[ii])  # 'y(x)')
+    plt.plot(xx, zz, linestyle='--',color=color[ii])  # label='z(x)')
+    plt.legend(title="ветеровая обстановка")
+    plt.axis([0, 3500, 0, 600])
+    plt.xlabel('x, м', fontsize=15)
+    plt.ylabel('y(x), z(x), м', fontsize=15)
+    plt.grid(True)
+    # plt.xticks(range(0, 2401, 200))
+
+plt.show()'''
+
+
+for ii in range(0, 4):
+
+    bull_12 = Bullet(d, m[krit_ust], Jx[krit_ust], Jy[krit_ust], Jz[krit_ust], v_0, tang_0, wind_[ii])
+
+    time = 0
+
+    der_vx = [0]
+    der_vy = [0]
+    der_vz = [0]
+
+    vxx = [bull_12.tang * 180 / kk.pi]
+    vyy = [bull_12.vy1 * 180 / kk.pi]
+    vzz = [bull_12.vz1 * 180 / kk.pi]
+
+    LL0 = [bull_12.L0]
+    LL1 = [bull_12.L1]
+    LL2 = [bull_12.L2]
+    LL3 = [bull_12.L3]
+
+    ti = [0]
+
+    while bull_12.y >= 0:  # time < 5: # bull_12.y >= 0:
+
+        f_xyz, m_xyz = bull_12.aero(
+            bull_12.windd(wind_[ii]))  # wind_speed(wind_, form_c_ib([bull_12.L0, bull_12.L1, bull_12.L2, bull_12.L3])))
+        bull_12.dynamics(f_xyz, m_xyz)
+        # print(bull_12.alf, bull_12.betta, bull_12.tang * 180 / kk.pi)
+        # print()
+        time += dt
+
+        # vxx.append(bull_12.alf * 180 / kk.pi)  # bull_12.tang * 180 / kk.pi)
+        # vxx.append(bull_12.tang * 180 / kk.pi)
+        # vyy.append(bull_12.gamma * 180 / kk.pi)  # bull_12.gamma * 180 / kk.pi)
+        # vzz.append(bull_12.psi * 180 / kk.pi)
+        # vxx.append(bull_12.alf)
+        # vyy.append(bull_12.betta)  # bull_12.gamma * 180 / kk.pi)
+
+        vxx.append(bull_12.wx)
+        vyy.append(bull_12.wy)
+        vzz.append(bull_12.wz)
+
+        # print(bull_12.wz)
+        # LL0.append(bull_12.L0)
+        # LL1.append(bull_12.L1)
+        # LL2.append(bull_12.L2)
+        # LL3.append(bull_12.L3)
+
+        ti.append(time)
+    # plt.plot(ti, LL0)
+    # plt.plot(ti, LL1)
+    # plt.plot(ti, LL2)
+    # plt.plot(ti, LL3)
+    # plt.show()
+    # plt.plot(ti, vxx, linestyle='-', color=color[ii], label=label[ii])  # 'y(x)')
+    # plt.plot(ti, vyy, linestyle='-', color=color[ii], label=label[ii])  # label='z(x)')
+    # plt.plot(ti, vzz, linestyle='-', color=color[ii], label=label[ii])
+
+    plt.plot(ti, vxx, linestyle='-', color=color[ii], label=label[ii])
+    plt.plot(ti, vyy, linestyle='--', color=color[ii])  #, label=label[ii])  # label='z(x)')
+    # plt.plot(ti, vzz, linestyle='-.', color=color[ii])  #, label=label[ii])
+    plt.legend(title="ветеровая обстановка")
+    plt.axis([0, 25, -0.1, 0.1])
+    plt.xlabel('t, с', fontsize=15)
+    # plt.ylabel('Vz, м/с', fontsize=15)
+    # plt.ylabel(r'$\vartheta$, град', fontsize=15)
+    # plt.ylabel(r'$\alpha$,  $\beta$, град', fontsize=15)
+    plt.ylabel(r'$\omega_{x}$, $\omega_{y}$, $\omega_{z}$, рад/с', fontsize=15)
+    # plt.ylabel(r'$\psi$, град', fontsize=15)
+    plt.grid(True)
+
 plt.show()
 
+'''
 plt.figure(figsize=(10 * 1.5, 6 * 1.5))
 plt.plot(ti, xx)
 plt.plot(ti, yy)
@@ -451,9 +517,9 @@ plt.plot(ti, L11)
 plt.plot(ti, L22)
 plt.plot(ti, L33)
 plt.grid(True)
-plt.show()
+plt.show()'''
 
 
-fig = plt.figure()
+'''fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.scatter(xx, zz, yy)
+ax.scatter(xx, zz, yy)'''
